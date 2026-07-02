@@ -101,6 +101,14 @@ If you want your own copy on Docker Hub:
 
 This is a community project. It is not made by Anthropic and is not official. The Claude Science program belongs to Anthropic and follows [Anthropic's terms](https://claude.com/legal/consumer-terms). "Claude" is a trademark of Anthropic.
 
+
+
 ## License
 
 This packaging is [MIT licensed](LICENSE). The Claude Science program itself is owned by Anthropic.
+
+### **Created by**
+
+* 🇲🇦 **Mahmoud Zakaria** 
+* 🌐 [www.mahmoud.ma](https://www.mahmoud.ma/)
+
