@@ -1,0 +1,55 @@
+# Multiple isolated Claude Science instances on one host - e.g. one per lab
+# member. Claude Science is a single-user daemon (one login, one data dir),
+# so you scale it horizontally: one container + one volume + one port per user.
+#
+#   docker compose -f deploy/multi-instance/compose.yaml up -d
+#   docker exec claude-science-alice claude-science url   # Alice's login link
+#   docker exec claude-science-bob   claude-science url   # Bob's login link
+#
+# Add a user: copy a service block, bump the port, done. Each instance is
+# fully isolated: own login session, own projects, own analysis environments.
+
+name: claude-science-multi
+
+x-instance: &instance
+  image: ${CLAUDE_SCIENCE_IMAGE:-claude-science:local}
+  build:
+    context: ../..
+    dockerfile: docker/Dockerfile
+  restart: unless-stopped
+  security_opt:
+    # Required for the daemon's bubblewrap sandbox - see docs/security.md
+    - seccomp=unconfined
+    - apparmor=unconfined
+    - systempaths=unconfined
+  # Per-user fairness on a shared box - tune to your hardware:
+  # deploy:
+  #   resources:
+  #     limits:
+  #       cpus: "2"
+  #       memory: 4g
+
+services:
+  alice:
+    <<: *instance
+    container_name: claude-science-alice
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - alice-data:/data
+
+  bob:
+    <<: *instance
+    container_name: claude-science-bob
+    ports:
+      - "127.0.0.1:8010:8000"
+      - "127.0.0.1:8011:8001"
+    volumes:
+      - bob-data:/data
+
+volumes:
+  alice-data:
+    name: claude-science-data-alice
+  bob-data:
+    name: claude-science-data-bob

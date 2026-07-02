@@ -1,0 +1,61 @@
+name: claude-science
+
+services:
+  claude-science:
+    image: ${CLAUDE_SCIENCE_IMAGE:-claude-science:local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        CLAUDE_SCIENCE_URL: ${CLAUDE_SCIENCE_URL:-https://downloads.claude.ai/claude-science/latest/linux-x64}
+    container_name: claude-science
+    restart: unless-stopped
+    ports:
+      # Published on localhost only: the UI is a login-gated personal app.
+      # For remote access use an SSH tunnel or a TLS reverse proxy
+      # (see deploy/ and docs/security.md).
+      # Host and container port are kept equal so the login link the daemon
+      # prints (which uses its internal port) is directly usable on the host.
+      - "127.0.0.1:${CLAUDE_SCIENCE_PORT:-8000}:${CLAUDE_SCIENCE_PORT:-8000}"
+      - "127.0.0.1:${CLAUDE_SCIENCE_SANDBOX_PORT:-8001}:${CLAUDE_SCIENCE_SANDBOX_PORT:-8001}"
+    environment:
+      # Passed through so the daemon listens on the same port that's published.
+      CLAUDE_SCIENCE_PORT: ${CLAUDE_SCIENCE_PORT:-8000}
+      CLAUDE_SCIENCE_SANDBOX_PORT: ${CLAUDE_SCIENCE_SANDBOX_PORT:-8001}
+      CLAUDE_SCIENCE_AUTO_UPDATE: ${CLAUDE_SCIENCE_AUTO_UPDATE:-false}
+      CLAUDE_SCIENCE_DISABLE_SANDBOX: ${CLAUDE_SCIENCE_DISABLE_SANDBOX:-false}
+      CLAUDE_SCIENCE_SKIP_APPROVALS: ${CLAUDE_SCIENCE_SKIP_APPROVALS:-false}
+      CLAUDE_SCIENCE_BASE_PATH: ${CLAUDE_SCIENCE_BASE_PATH:-}
+      CLAUDE_SCIENCE_ALLOW_ORIGINS: ${CLAUDE_SCIENCE_ALLOW_ORIGINS:-}
+      CLAUDE_SCIENCE_EXTRA_ARGS: ${CLAUDE_SCIENCE_EXTRA_ARGS:-}
+    volumes:
+      # All state (login session, projects, analysis environments) lives here.
+      # Named volume => survives container restart, recreation, image updates,
+      # and `docker compose down`. Only `docker compose down -v` deletes it.
+      - claude-science-data:/data
+      # Optionally expose host datasets to the workbench (read-only default):
+      # - ./datasets:/home/claude/datasets:ro
+
+    security_opt:
+      # The daemon sandboxes analyses with bubblewrap (user namespaces + a
+      # fresh /proc), which Docker's default seccomp/AppArmor/masked-path
+      # profiles block. Relaxing them keeps Claude's own sandbox + approval
+      # cards active inside the container. Alternative: remove these three
+      # lines and set CLAUDE_SCIENCE_DISABLE_SANDBOX=true - see
+      # docs/security.md for the trade-off.
+      - seccomp=unconfined
+      - apparmor=unconfined
+      - systempaths=unconfined
+
+    # Resource guardrails for shared hosts - uncomment and tune:
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "4"
+    #       memory: 8g
+
+volumes:
+  claude-science-data:
+    # Fixed name (instead of the compose-project prefix) so backups, restores,
+    # and plain `docker run` all address the same volume.
+    name: claude-science-data

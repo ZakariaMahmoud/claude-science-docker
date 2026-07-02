@@ -1,0 +1,86 @@
+name: Build & publish to Docker Hub
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly rebuild: the upstream "latest" binary moves, images should follow.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+env:
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/claude-science
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfile (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+
+      - name: Lint shell scripts (shellcheck)
+        run: shellcheck docker/entrypoint.sh scripts/*.sh
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: claude-science:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker run --rm claude-science:ci --version
+          docker run --rm claude-science:ci status
+
+      - name: Extract upstream version
+        id: version
+        run: |
+          VERSION="$(docker run --rm claude-science:ci --version | awk '{print $2}')"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Upstream version: ${VERSION}"
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag claude-science:ci "$IMAGE:latest"
+          docker tag claude-science:ci "$IMAGE:${{ steps.version.outputs.version }}"
+          docker push "$IMAGE:latest"
+          docker push "$IMAGE:${{ steps.version.outputs.version }}"
+
+      - name: Sync README to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+          short-description: "Anthropic's Claude Science research workbench, containerized (unofficial)"

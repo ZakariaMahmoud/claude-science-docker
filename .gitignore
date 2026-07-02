@@ -1,0 +1,17 @@
+# Local configuration & state
+.env
+claude-science-data/
+
+# The upstream binary - never commit it; the Dockerfile downloads it at build time
+linux-x64
+mac-arm64.dmg
+mac-x64.dmg
+claude-science
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local backup archives
+backups/

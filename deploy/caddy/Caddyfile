@@ -1,0 +1,19 @@
+# TLS reverse proxy for Claude Science with automatic Let's Encrypt certs.
+#
+#   caddy run --config deploy/caddy/Caddyfile
+#
+# Remember to start the container with:
+#   CLAUDE_SCIENCE_ALLOW_ORIGINS=https://science.example.com
+# so the daemon's CSRF gate accepts WebSocket upgrades from this Origin.
+
+science.example.com {
+    # Web UI (Caddy proxies WebSockets automatically)
+    reverse_proxy 127.0.0.1:8000
+}
+
+# The sandbox port serves Claude-generated HTML previews. It is intentionally
+# a *different* origin so a previewed page can never read your session.
+# Publish it on a separate hostname, never a sub-path of the UI host.
+science-preview.example.com {
+    reverse_proxy 127.0.0.1:8001
+}

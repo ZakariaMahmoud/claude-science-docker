@@ -1,0 +1,3 @@
+# Everything is excluded except what the build actually needs.
+*
+!docker/entrypoint.sh
