@@ -76,13 +76,33 @@ It is only deleted if you remove the volume on purpose (`docker volume rm claude
 
 ## A port is already in use?
 
-The app uses ports 8000, 8001, and 8080. If one is taken, change the left side of that `-p` line in the command. For example, to open the launcher on 9090 instead:
+The app uses three ports: 8000 (main app), 8001 (previews), and 8080 (the launcher page). If one is taken, here is how to change it.
+
+**The launcher page (8080) or previews (8001).** Just change the left number of that `-p` line. For example, to open the launcher on 9090 instead:
 
 ```
 -p 127.0.0.1:9090:8080
 ```
 
-Then open http://localhost:9090 instead. See [.env.example](.env.example) for every setting you can change.
+Then open http://localhost:9090.
+
+**The main app port (8000).** This one needs two changes together, because the sign-in link points at whatever port the app uses inside the container. Change **both** numbers on the `-p` line **and** add a matching `-e CLAUDE_SCIENCE_PORT` line. For example, to use 9000:
+
+```bash
+docker run -d --name claude-science \
+  -e CLAUDE_SCIENCE_PORT=9000 \
+  -p 127.0.0.1:9000:9000 \
+  -p 127.0.0.1:8001:8001 \
+  -p 127.0.0.1:8080:8080 \
+  -v claude-science-data:/data \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  --security-opt systempaths=unconfined \
+  --restart unless-stopped \
+  zmahmoud/claude-science-docker:latest
+```
+
+You still open the launcher at http://localhost:8080; it sends you to the app on the new port automatically. See [.env.example](.env.example) for every setting you can change.
 
 ## Want to run it on a server or share it?
 
