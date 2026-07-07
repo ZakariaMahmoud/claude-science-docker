@@ -89,8 +89,12 @@ shutdown=""
 child=""
 term() {
     shutdown=1
-    [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
-    [ -n "$launcher_pid" ] && kill -TERM "$launcher_pid" 2>/dev/null || true
+    if [ -n "$child" ]; then
+        kill -TERM "$child" 2>/dev/null || true
+    fi
+    if [ -n "$launcher_pid" ]; then
+        kill -TERM "$launcher_pid" 2>/dev/null || true
+    fi
 }
 trap term TERM INT
 

@@ -61,15 +61,22 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Upstream version: ${VERSION}"
 
+      # Publishing steps run only when the Docker Hub secrets are configured,
+      # so the build stays green before you add them. Set DOCKERHUB_USERNAME
+      # and DOCKERHUB_TOKEN in the repo secrets to turn publishing on.
+      - name: Note if publishing is skipped
+        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN == '' }}
+        run: echo "::notice::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets not set - built and smoke-tested only, not pushed."
+
       - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != '' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push image
-        if: github.event_name != 'pull_request'
+        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != '' }}
         run: |
           docker tag claude-science:ci "$IMAGE:latest"
           docker tag claude-science:ci "$IMAGE:${{ steps.version.outputs.version }}"
@@ -77,7 +84,7 @@ jobs:
           docker push "$IMAGE:${{ steps.version.outputs.version }}"
 
       - name: Sync README to Docker Hub
-        if: github.event_name != 'pull_request'
+        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != '' }}
         uses: peter-evans/dockerhub-description@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
