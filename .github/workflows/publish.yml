@@ -26,7 +26,7 @@ jobs:
           dockerfile: docker/Dockerfile
 
       - name: Lint shell scripts (shellcheck)
-        run: shellcheck docker/entrypoint.sh scripts/*.sh
+        run: shellcheck docker/entrypoint.sh docker/launcher.sh scripts/*.sh
 
   build:
     runs-on: ubuntu-latest

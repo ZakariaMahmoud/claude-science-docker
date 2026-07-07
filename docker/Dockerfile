@@ -11,6 +11,9 @@
 ARG BASE_IMAGE=debian:bookworm-slim
 
 # --- Stage 1: fetch and verify the binary ------------------------------------
+# BASE_IMAGE defaults to the tagged debian:bookworm-slim; hadolint can't see
+# through the ARG, so DL3006 (require an explicit tag) is a false positive here.
+# hadolint ignore=DL3006
 FROM ${BASE_IMAGE} AS download
 
 # Override to pin a specific build, e.g.
@@ -35,6 +38,7 @@ RUN curl -fSL --retry 3 --retry-delay 5 "${CLAUDE_SCIENCE_URL}" -o /claude-scien
     && /claude-science --version
 
 # --- Stage 2: runtime ---------------------------------------------------------
+# hadolint ignore=DL3006
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="Claude Science (unofficial)" \
