@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/claude-science
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/claude-science-docker
 
 jobs:
   lint:

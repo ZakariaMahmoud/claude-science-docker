@@ -17,8 +17,9 @@ minutes. Watch `docker logs -f claude-science` until it settles; the
 healthcheck allows 5 minutes before flagging the container unhealthy.
 
 **"Login link expired."**
-Links are single-use and live ~3 minutes. Mint a fresh one:
-`scripts/login-url.sh` (or `docker exec claude-science claude-science url`).
+Links are single-use and live ~3 minutes. Get a fresh one by reopening the
+launcher page (port 8080) and clicking Launch, or run
+`docker exec claude-science claude-science url`.
 
 **Login page loads but sign-in fails.**
 You need a claude.ai account on Pro, Max, Team, or Enterprise; Team and

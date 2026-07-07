@@ -7,6 +7,8 @@ All runtime configuration is done with environment variables - set them in
 |---|---|---|
 | `CLAUDE_SCIENCE_PORT` | `8000` | Web UI port inside the container |
 | `CLAUDE_SCIENCE_SANDBOX_PORT` | `8001` | Port serving Claude-generated HTML previews (isolated origin so a preview can never read your session) |
+| `CLAUDE_SCIENCE_LAUNCHER_PORT` | `8080` | Port for the one-click launcher page (open this one first) |
+| `CLAUDE_SCIENCE_LAUNCHER` | `true` | Set to `false` to turn the launcher page off (then get login links with `claude-science url`) |
 | `CLAUDE_SCIENCE_HOST` | `0.0.0.0` | Bind address inside the container. Leave as-is - Docker's port publishing is the real network gate |
 | `CLAUDE_SCIENCE_DATA_DIR` | `/data` | State directory; mount your volume here |
 | `CLAUDE_SCIENCE_AUTO_UPDATE` | `false` | Let the daemon self-update in place. Keep off in containers - pull a new image instead |

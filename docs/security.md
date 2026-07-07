@@ -13,6 +13,14 @@ Login links (from `claude-science url`) are single-use and expire after
 about 3 minutes, but the session they create is long-lived; treat the UI
 port like an SSH port, not like a public website.
 
+The launcher page (port 8080) mints one of those login links on request, so
+it shares the exact same trust boundary as the UI: anyone who can reach it
+can start a signed-in session. It is published on `127.0.0.1` only for the
+same reason. Do not expose it to a network. If you front the app with a
+reverse proxy for remote access, proxy the UI (and put your own
+authentication in front), not the launcher; set `CLAUDE_SCIENCE_LAUNCHER=false`
+to switch the launcher off entirely on shared or exposed hosts.
+
 ## 2. The daemon's internal sandbox
 
 By default the daemon confines what Claude can read, write, and reach on the

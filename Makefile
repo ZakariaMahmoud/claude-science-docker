@@ -34,7 +34,7 @@ run: ## Run without compose (detached, localhost-only, persistent volume)
 	@sleep 5 && $(MAKE) --no-print-directory url
 
 url: ## Print a single-use login link (~3 min validity)
-	@./scripts/login-url.sh $(CONTAINER)
+	@docker exec $(CONTAINER) claude-science url
 
 status: ## Show daemon status (JSON)
 	docker exec $(CONTAINER) claude-science status

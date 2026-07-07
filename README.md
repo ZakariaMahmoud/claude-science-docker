@@ -1,54 +1,68 @@
 # Claude Science Docker
 
-Run [Claude Science](https://claude.com/product/claude-science) in Docker with one command.
+[![Docker Hub](https://img.shields.io/docker/pulls/zmahmoud/claude-science-docker?logo=docker&label=Docker%20Hub%20pulls)](https://hub.docker.com/r/zmahmoud/claude-science-docker)
+[![Image size](https://img.shields.io/docker/image-size/zmahmoud/claude-science-docker/latest?logo=docker)](https://hub.docker.com/r/zmahmoud/claude-science-docker)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Run [Claude Science](https://claude.com/product/claude-science) in Docker. **No cloning, no terminal login, one command.**
 
 Claude Science is Anthropic's AI workbench for research. It normally installs only on Mac and Linux. This project puts it in a Docker container so you can run it anywhere Docker runs, including Windows and home servers, and keep all your data safe in one place.
+
+The image is on Docker Hub: **[`zmahmoud/claude-science-docker`](https://hub.docker.com/r/zmahmoud/claude-science-docker)**.
 
 ## What you need
 
 1. **Docker** installed. Get [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) or Docker Engine (Linux).
 2. A **Claude account** on a Pro, Max, Team, or Enterprise plan.
 
-That is it.
+That is it. You do **not** need to download this project.
 
-## Setup in 3 steps
+## Option 1: Docker Hub (recommended, no download)
 
-**Step 1.** Download this project and open its folder:
+**Step 1.** Run this one command (copy the whole thing):
+
+```bash
+docker run -d --name claude-science \
+  -p 127.0.0.1:8000:8000 \
+  -p 127.0.0.1:8001:8001 \
+  -p 127.0.0.1:8080:8080 \
+  -v claude-science-data:/data \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  --security-opt systempaths=unconfined \
+  --restart unless-stopped \
+  zmahmoud/claude-science-docker:latest
+```
+
+**Step 2.** Open **http://localhost:8080** in your browser and click **Launch Claude Science**.
+
+That is it. The page waits until the app is ready, then signs you in with one click. The very first start takes a few minutes while it sets itself up; the page shows "Starting up" until it is done.
+
+> The one command downloads the ready-made image from Docker Hub, keeps your data in a safe volume, and starts a small welcome page on port 8080 that logs you in. No cloning, no copy-pasting login links.
+
+## Option 2: with the project files (optional)
+
+If you want the compose file, scripts, and docs on your machine:
 
 ```bash
 git clone https://github.com/ZakariaMahmoud/claude-science-docker.git
 cd claude-science-docker
-```
-
-**Step 2.** Start it:
-
-```bash
 docker compose up -d
 ```
 
-The first start takes a few minutes while it sets itself up. That is normal.
-
-**Step 3.** Get your login link and open it in your browser:
-
-```bash
-./scripts/login-url.sh
-```
-
-Copy the link it prints, paste it in your browser, and sign in with your Claude account. Done.
-
-That is the whole setup. If you want, you can use `make up` instead of steps 2 and 3, and it does both for you.
+Then open http://localhost:8080 and click Launch, the same as above. `make up` also works.
 
 ## Everyday commands
 
 | What you want | Command |
 | --- | --- |
-| Start it | `docker compose up -d` |
-| Get a new login link | `./scripts/login-url.sh` |
+| Sign in again | Open **http://localhost:8080** and click Launch |
 | See what it is doing | `docker logs -f claude-science` |
-| Stop it | `docker compose down` |
-| Save a backup of your data | `./scripts/backup.sh` |
+| Stop it | `docker stop claude-science` |
+| Start it again | `docker start claude-science` |
+| Update to the newest version | `docker pull zmahmoud/claude-science-docker:latest` then recreate |
 
-The login link works once and lasts about 3 minutes. If it stops working, just run `./scripts/login-url.sh` again for a new one. Your container keeps running.
+The one-click sign-in link lasts about 3 minutes and works once. If it stops working, just reopen **http://localhost:8080** and click Launch again. Your container keeps running the whole time.
 
 ## Your data is safe
 
@@ -58,17 +72,17 @@ Everything you do (your login, your projects, your work) is saved in a Docker vo
 - rebuild or update the image
 - run `docker compose down`
 
-It is only deleted if you run `docker compose down -v` on purpose. You can also make your own backup file any time with `./scripts/backup.sh`.
+It is only deleted if you remove the volume on purpose (`docker volume rm claude-science-data`). If you cloned the project you can also make your own backup file any time with `./scripts/backup.sh`.
 
-## The port is already in use?
+## A port is already in use?
 
-By default the app uses port 8000. If something else on your computer already uses it, pick another one. Create a file named `.env` in the folder with this line:
+The app uses ports 8000, 8001, and 8080. If one is taken, change the left side of that `-p` line in the command. For example, to open the launcher on 9090 instead:
 
 ```
-CLAUDE_SCIENCE_PORT=8100
+-p 127.0.0.1:9090:8080
 ```
 
-Then run `docker compose up -d` again. See [.env.example](.env.example) for every setting you can change.
+Then open http://localhost:9090 instead. See [.env.example](.env.example) for every setting you can change.
 
 ## Want to run it on a server or share it?
 
@@ -86,7 +100,8 @@ Ready-made reverse proxy setups live in [deploy/](deploy/).
 - It downloads the official Claude Science program from Anthropic when the image is built. The program is never copied into this project.
 - It runs as a normal user (not root) inside the container.
 - It keeps your data in the `/data` volume.
-- It uses port 8000 for the app and port 8001 for previews.
+- It uses port 8000 for the app, 8001 for previews, and 8080 for the one-click launcher page you open first.
+- The launcher is a tiny built-in page. When you click Launch it asks the app for a fresh sign-in link and sends you straight there.
 
 ## Publish your own image (optional)
 

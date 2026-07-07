@@ -63,7 +63,20 @@ if [ -n "${CLAUDE_SCIENCE_EXTRA_ARGS:-}" ]; then
 fi
 
 echo "Starting: claude-science $*"
-echo "Once running, get a login link with:  docker exec <container> claude-science url"
+
+# --- Launcher web page -------------------------------------------------------
+# A one-click sign-in page so users never touch the CLI. socat runs the tiny
+# launcher script once per request; the script mints a login link on demand.
+# Disable with CLAUDE_SCIENCE_LAUNCHER=false.
+LAUNCHER_PORT="${CLAUDE_SCIENCE_LAUNCHER_PORT:-8080}"
+launcher_pid=""
+if [ "${CLAUDE_SCIENCE_LAUNCHER:-true}" = "true" ]; then
+    socat "TCP-LISTEN:${LAUNCHER_PORT},reuseaddr,fork" EXEC:/usr/local/bin/launcher.sh &
+    launcher_pid=$!
+    echo "Open the launcher page at http://localhost:${LAUNCHER_PORT} and click Launch."
+else
+    echo "Once running, get a login link with:  docker exec <container> claude-science url"
+fi
 
 # --- Supervisor loop ---------------------------------------------------------
 # The daemon restarts *itself* on certain events - most notably the first time
@@ -77,6 +90,7 @@ child=""
 term() {
     shutdown=1
     [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
+    [ -n "$launcher_pid" ] && kill -TERM "$launcher_pid" 2>/dev/null || true
 }
 trap term TERM INT
 
