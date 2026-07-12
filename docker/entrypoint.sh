@@ -48,14 +48,10 @@ set -- serve \
     --no-browser \
     --allow-ephemeral-data-dir
 
-# Behind the proxy the browser's Origin is the public address, not the daemon's
-# internal port, so the daemon's CSRF gate must accept it. Cover the common
-# local hostnames; add your own public origin via CLAUDE_SCIENCE_ALLOW_ORIGINS.
-if [ "$PROXY_ENABLED" = "true" ]; then
-    set -- "$@" \
-        --allow-origin "http://localhost:${PUBLIC_PORT}" \
-        --allow-origin "http://127.0.0.1:${PUBLIC_PORT}"
-fi
+# Behind the proxy, Caddy rewrites the browser's Origin to the daemon's own
+# address so WebSocket upgrades are accepted (see docker/Caddyfile). No
+# --allow-origin is needed here; CLAUDE_SCIENCE_ALLOW_ORIGINS below still
+# applies when the proxy is turned off.
 
 # Self-update is off by default: containers should be updated by pulling a new
 # image, not by mutating a running one.

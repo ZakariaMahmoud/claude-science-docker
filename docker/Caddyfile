@@ -29,6 +29,14 @@
 	# app's own code still handles them.
 	handle {
 		reverse_proxy 127.0.0.1:{$CS_DAEMON_PORT:47100} {
+			# Present every request to the daemon as same-origin. The daemon's
+			# CSRF gate only accepts WebSocket upgrades whose Origin matches its
+			# own address (its --allow-origin flag does not cover WebSockets in
+			# this build), so rewrite the browser's Origin to the daemon's. This
+			# is the "same-origin reverse proxy" the daemon's own help suggests;
+			# the localhost publish + the session token stay as the real gates.
+			header_up Origin http://127.0.0.1:{$CS_DAEMON_PORT:47100}
+
 			@expired {
 				status 401
 				header Content-Type text/html*
