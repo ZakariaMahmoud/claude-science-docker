@@ -16,10 +16,12 @@ First launch downloads and sets up the analysis runtime, which takes a few
 minutes. Watch `docker logs -f claude-science` until it settles; the
 healthcheck allows 5 minutes before flagging the container unhealthy.
 
-**"Login link expired."**
-Links are single-use and live ~3 minutes. Get a fresh one by reopening the
-launcher page (port 8080) and clicking Launch, or run
-`docker exec claude-science claude-science url`.
+**"This Claude Science session has expired."**
+You should not see this page: the built-in proxy catches it and signs you
+back in automatically. If you do see it, you have `CLAUDE_SCIENCE_PROXY=false`
+(the proxy is off) or you are hitting the daemon's internal port directly.
+With the proxy on, just reload http://localhost:8000. To get a link by hand,
+run `docker exec claude-science claude-science url`.
 
 **Login page loads but sign-in fails.**
 You need a claude.ai account on Pro, Max, Team, or Enterprise; Team and

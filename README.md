@@ -25,7 +25,6 @@ That is it. You do **not** need to download this project.
 docker run -d --name claude-science \
   -p 127.0.0.1:8000:8000 \
   -p 127.0.0.1:8001:8001 \
-  -p 127.0.0.1:8080:8080 \
   -v claude-science-data:/data \
   --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined \
@@ -34,11 +33,11 @@ docker run -d --name claude-science \
   zmahmoud/claude-science-docker:latest
 ```
 
-**Step 2.** Open **http://localhost:8080** in your browser and click **Launch Claude Science**.
+**Step 2.** Open **http://localhost:8000** in your browser.
 
-That is it. The page waits until the app is ready, then signs you in with one click. The very first start takes a few minutes while it sets itself up; the page shows "Starting up" until it is done.
+That is it. Sign-in is automatic. The very first start takes a few minutes while it sets itself up; you will see a short "Starting up" page until it is ready, then it drops you straight into Claude Science.
 
-> The one command downloads the ready-made image from Docker Hub, keeps your data in a safe volume, and starts a small welcome page on port 8080 that logs you in. No cloning, no copy-pasting login links.
+> A small proxy built into the image handles sign-in for you. Whenever a login is needed (including the one-time restart the first time you connect your Claude account), it quietly gets a fresh session so you never see a login screen or an "expired" page. No cloning, no copy-pasting links.
 
 ## Option 2: with the project files (optional)
 
@@ -50,19 +49,19 @@ cd claude-science-docker
 docker compose up -d
 ```
 
-Then open http://localhost:8080 and click Launch, the same as above. `make up` also works.
+Then open http://localhost:8000, the same as above. `make up` also works.
 
 ## Everyday commands
 
 | What you want | Command |
 | --- | --- |
-| Sign in again | Open **http://localhost:8080** and click Launch |
+| Open it | Go to **http://localhost:8000** (sign-in is automatic) |
 | See what it is doing | `docker logs -f claude-science` |
 | Stop it | `docker stop claude-science` |
 | Start it again | `docker start claude-science` |
 | Update to the newest version | `docker pull zmahmoud/claude-science-docker:latest` then recreate |
 
-The one-click sign-in link lasts about 3 minutes and works once. If it stops working, just reopen **http://localhost:8080** and click Launch again. Your container keeps running the whole time.
+You never have to deal with login links. If a session ever expires, the built-in proxy signs you back in automatically the next time you load the page. Your container keeps running the whole time.
 
 ## Your data is safe
 
@@ -76,24 +75,17 @@ It is only deleted if you remove the volume on purpose (`docker volume rm claude
 
 ## A port is already in use?
 
-The app uses three ports: 8000 (main app), 8001 (previews), and 8080 (the launcher page). If one is taken, here is how to change it.
+The app uses two ports: 8000 (main app) and 8001 (previews). If one is taken, here is how to change it.
 
-**The launcher page (8080) or previews (8001).** Just change the left number of that `-p` line. For example, to open the launcher on 9090 instead:
+**Previews (8001).** Just change the left number of that `-p` line, e.g. `-p 127.0.0.1:9001:8001`.
 
-```
--p 127.0.0.1:9090:8080
-```
-
-Then open http://localhost:9090.
-
-**The main app port (8000).** This one needs two changes together, because the sign-in link points at whatever port the app uses inside the container. Change **both** numbers on the `-p` line **and** add a matching `-e CLAUDE_SCIENCE_PORT` line. For example, to use 9000:
+**The main app port (8000).** Change **both** numbers on the `-p` line **and** add a matching `-e CLAUDE_SCIENCE_PORT` line, so the built-in proxy listens where you publish it. For example, to use 9000:
 
 ```bash
 docker run -d --name claude-science \
   -e CLAUDE_SCIENCE_PORT=9000 \
   -p 127.0.0.1:9000:9000 \
   -p 127.0.0.1:8001:8001 \
-  -p 127.0.0.1:8080:8080 \
   -v claude-science-data:/data \
   --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined \
@@ -102,7 +94,7 @@ docker run -d --name claude-science \
   zmahmoud/claude-science-docker:latest
 ```
 
-You still open the launcher at http://localhost:8080; it sends you to the app on the new port automatically. See [.env.example](.env.example) for every setting you can change.
+Then open http://localhost:9000. See [.env.example](.env.example) for every setting you can change.
 
 ## Want to run it on a server or share it?
 
@@ -120,8 +112,8 @@ Ready-made reverse proxy setups live in [deploy/](deploy/).
 - It downloads the official Claude Science program from Anthropic when the image is built. The program is never copied into this project.
 - It runs as a normal user (not root) inside the container.
 - It keeps your data in the `/data` volume.
-- It uses port 8000 for the app, 8001 for previews, and 8080 for the one-click launcher page you open first.
-- The launcher is a tiny built-in page. When you click Launch it asks the app for a fresh sign-in link and sends you straight there.
+- It uses port 8000 for the app and 8001 for previews.
+- A small proxy (Caddy) sits in front of the app. When the app would show its "session expired" page, the proxy quietly fetches a fresh sign-in and sends you back in, so you never see it.
 
 ## Publish your own image (optional)
 

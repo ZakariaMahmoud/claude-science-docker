@@ -2,3 +2,4 @@
 *
 !docker/entrypoint.sh
 !docker/launcher.sh
+!docker/Caddyfile

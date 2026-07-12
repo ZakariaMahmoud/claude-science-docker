@@ -64,10 +64,14 @@ RUN apt-get update \
     # (url, status, logs, stop) works without extra flags.
     && ln -s /data /home/claude/.claude-science
 
+# Caddy proxy binary, copied from the official static image (no apt needed).
+COPY --from=caddy:2-alpine /usr/bin/caddy /usr/local/bin/caddy
+
 # Build context is the repository root: docker build -f docker/Dockerfile .
 COPY --from=download /claude-science /usr/local/bin/claude-science
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY --chmod=0755 docker/launcher.sh /usr/local/bin/launcher.sh
+COPY docker/Caddyfile /etc/caddy/Caddyfile
 
 USER claude
 WORKDIR /home/claude
@@ -75,12 +79,11 @@ WORKDIR /home/claude
 ENV CLAUDE_SCIENCE_HOST=0.0.0.0 \
     CLAUDE_SCIENCE_PORT=8000 \
     CLAUDE_SCIENCE_SANDBOX_PORT=8001 \
-    CLAUDE_SCIENCE_LAUNCHER_PORT=8080 \
     CLAUDE_SCIENCE_DATA_DIR=/data
 
-# 8000 = web UI, 8001 = isolated sandbox port for Claude-generated HTML previews,
-# 8080 = one-click launcher page (open this one first).
-EXPOSE 8000 8001 8080
+# 8000 = web UI (through the Caddy proxy, sign-in is automatic),
+# 8001 = isolated sandbox port for Claude-generated HTML previews.
+EXPOSE 8000 8001
 
 VOLUME ["/data"]
 

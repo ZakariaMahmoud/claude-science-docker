@@ -1,30 +1,61 @@
 #!/bin/sh
 # Entrypoint for the Claude Science container.
 #
-# No arguments        -> start the daemon in the foreground (container's PID 1).
+# No arguments        -> start the daemon (behind the Caddy proxy) as PID 1.
 # With arguments      -> run any claude-science subcommand, e.g.:
 #                          docker exec claude-science claude-science url
 #                          docker run --rm ... image status
+#
+# Architecture (all in this one container):
+#   browser -> Caddy (public CLAUDE_SCIENCE_PORT)
+#              |-- /__cs_auth -> mint server (socat + launcher.sh, internal)
+#              `-- everything else -> daemon UI (internal CS_DAEMON_PORT)
+#   Caddy turns the daemon's 401 "session expired" page into an automatic
+#   re-login, so users never see it. The sandbox port is published straight
+#   from the daemon (previews are a separate origin by design).
 set -eu
 
 if [ "$#" -gt 0 ]; then
     exec claude-science "$@"
 fi
 
-PORT="${CLAUDE_SCIENCE_PORT:-8000}"
+PUBLIC_PORT="${CLAUDE_SCIENCE_PORT:-8000}"
 HOST="${CLAUDE_SCIENCE_HOST:-0.0.0.0}"
-SANDBOX_PORT="${CLAUDE_SCIENCE_SANDBOX_PORT:-$((PORT + 1))}"
+SANDBOX_PORT="${CLAUDE_SCIENCE_SANDBOX_PORT:-$((PUBLIC_PORT + 1))}"
 DATA_DIR="${CLAUDE_SCIENCE_DATA_DIR:-/data}"
+
+# Internal ports, not published. Caddy owns the public port, so the daemon UI
+# and the mint server live on separate localhost-only ports inside the container.
+CS_DAEMON_PORT="${CS_DAEMON_PORT:-47100}"
+CS_MINT_PORT="${CS_MINT_PORT:-47101}"
+export CLAUDE_SCIENCE_PORT="$PUBLIC_PORT" CS_DAEMON_PORT CS_MINT_PORT
+
+PROXY_ENABLED="${CLAUDE_SCIENCE_PROXY:-true}"
+if [ "$PROXY_ENABLED" = "true" ]; then
+    DAEMON_UI_PORT="$CS_DAEMON_PORT"
+else
+    # No proxy: the daemon serves the public port directly (old behaviour).
+    DAEMON_UI_PORT="$PUBLIC_PORT"
+fi
 
 # --allow-ephemeral-data-dir: a container rootfs is always overlayfs, which the
 # daemon refuses by default. Persistence is the volume's job - mount /data.
 set -- serve \
     --host "$HOST" \
-    --port "$PORT" \
+    --port "$DAEMON_UI_PORT" \
     --sandbox-port "$SANDBOX_PORT" \
     --data-dir "$DATA_DIR" \
     --no-browser \
     --allow-ephemeral-data-dir
+
+# Behind the proxy the browser's Origin is the public address, not the daemon's
+# internal port, so the daemon's CSRF gate must accept it. Cover the common
+# local hostnames; add your own public origin via CLAUDE_SCIENCE_ALLOW_ORIGINS.
+if [ "$PROXY_ENABLED" = "true" ]; then
+    set -- "$@" \
+        --allow-origin "http://localhost:${PUBLIC_PORT}" \
+        --allow-origin "http://127.0.0.1:${PUBLIC_PORT}"
+fi
 
 # Self-update is off by default: containers should be updated by pulling a new
 # image, not by mutating a running one.
@@ -62,39 +93,40 @@ if [ -n "${CLAUDE_SCIENCE_EXTRA_ARGS:-}" ]; then
     set -- "$@" ${CLAUDE_SCIENCE_EXTRA_ARGS}
 fi
 
-echo "Starting: claude-science $*"
-
-# --- Launcher web page -------------------------------------------------------
-# A one-click sign-in page so users never touch the CLI. socat runs the tiny
-# launcher script once per request; the script mints a login link on demand.
-# Disable with CLAUDE_SCIENCE_LAUNCHER=false.
-LAUNCHER_PORT="${CLAUDE_SCIENCE_LAUNCHER_PORT:-8080}"
-launcher_pid=""
-if [ "${CLAUDE_SCIENCE_LAUNCHER:-true}" = "true" ]; then
-    socat "TCP-LISTEN:${LAUNCHER_PORT},reuseaddr,fork" EXEC:/usr/local/bin/launcher.sh &
-    launcher_pid=$!
-    echo "Open the launcher page at http://localhost:${LAUNCHER_PORT} and click Launch."
+# --- Proxy + mint server -----------------------------------------------------
+# These make expired sessions invisible: Caddy catches the daemon's 401 and
+# routes the browser through the mint server to sign back in automatically.
+proxy_pid=""
+mint_pid=""
+if [ "$PROXY_ENABLED" = "true" ]; then
+    socat "TCP-LISTEN:${CS_MINT_PORT},reuseaddr,fork,bind=127.0.0.1" EXEC:/usr/local/bin/launcher.sh &
+    mint_pid=$!
+    # Caddy needs a writable config/data dir; point it at /tmp (we run non-root).
+    XDG_CONFIG_HOME=/tmp XDG_DATA_HOME=/tmp \
+        caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
+    proxy_pid=$!
+    echo "Open Claude Science at http://localhost:${PUBLIC_PORT} (sign-in is automatic)."
 else
-    echo "Once running, get a login link with:  docker exec <container> claude-science url"
+    echo "Proxy disabled. Get a login link with:  docker exec <container> claude-science url"
 fi
+
+echo "Starting: claude-science $*"
 
 # --- Supervisor loop ---------------------------------------------------------
 # The daemon restarts *itself* on certain events - most notably the first time
 # you sign in, when the active org changes (it exits 0 via SIGTERM to reload).
-# If we `exec` it as PID 1, that self-restart takes the whole container down
-# and breaks the in-flight login ("session has expired"). Instead we supervise:
-# relaunch on a clean exit, forward stop signals so `docker stop` is instant,
-# and give up only after repeated genuine failures so Docker can surface them.
+# If we `exec` it as PID 1, that self-restart takes the whole container down.
+# Instead we supervise: relaunch on a clean exit, forward stop signals so
+# `docker stop` is instant, and give up only after repeated genuine failures.
 shutdown=""
 child=""
 term() {
     shutdown=1
-    if [ -n "$child" ]; then
-        kill -TERM "$child" 2>/dev/null || true
-    fi
-    if [ -n "$launcher_pid" ]; then
-        kill -TERM "$launcher_pid" 2>/dev/null || true
-    fi
+    for pid in "$child" "$proxy_pid" "$mint_pid"; do
+        if [ -n "$pid" ]; then
+            kill -TERM "$pid" 2>/dev/null || true
+        fi
+    done
 }
 trap term TERM INT
 

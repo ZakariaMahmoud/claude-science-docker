@@ -75,5 +75,6 @@ one-way.
 2. Copy the archive over; on the new host: clone this repo,
    `docker compose up -d` once (creates the volume), `docker compose down`,
    `scripts/restore.sh <archive>`, `docker compose up -d`.
-3. Sessions survive the move; if the login is invalidated, open the launcher
-   page (port 8080) or run `docker exec claude-science claude-science url`.
+3. Sessions survive the move; if the login is invalidated, just reload
+   http://localhost:8000 (the proxy signs you back in) or run
+   `docker exec claude-science claude-science url`.
