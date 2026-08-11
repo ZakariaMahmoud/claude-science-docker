@@ -1,3 +1,5 @@
+
+
 # Claude Science Docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/zmahmoud/claude-science-docker?logo=docker&label=Docker%20Hub%20pulls)](https://hub.docker.com/r/zmahmoud/claude-science-docker)
@@ -59,7 +61,7 @@ Then open http://localhost:8000, the same as above. `make up` also works.
 | See what it is doing | `docker logs -f claude-science` |
 | Stop it | `docker stop claude-science` |
 | Start it again | `docker start claude-science` |
-| Update to the newest version | `docker pull zmahmoud/claude-science-docker:latest` then recreate |
+| Update to the newest version | `docker pull zmahmoud/claude-science-docker:latest` then recreate (or `docker compose pull && docker compose up -d`) |
 
 You never have to deal with login links. If a session ever expires, the built-in proxy signs you back in automatically the next time you load the page. Your container keeps running the whole time.
 
@@ -138,4 +140,3 @@ This packaging is [MIT licensed](LICENSE). The Claude Science program itself is 
 
 * 🇲🇦 **Mahmoud Zakaria** 
 * 🌐 [www.mahmoud.ma](https://www.mahmoud.ma/)
-
