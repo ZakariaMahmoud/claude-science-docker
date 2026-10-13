@@ -6,7 +6,7 @@ All runtime configuration is done with environment variables - set them in
 | Variable | Default | Purpose |
 |---|---|---|
 | `CLAUDE_SCIENCE_PORT` | `8000` | Public web UI port (the Caddy proxy listens here; open this in your browser) |
-| `CLAUDE_SCIENCE_SANDBOX_PORT` | `8001` | Port serving Claude-generated HTML previews (isolated origin so a preview can never read your session) |
+| `CLAUDE_SCIENCE_SANDBOX_PORT` | `8001` | Port serving Claude-generated HTML previews (isolated origin so a preview can never read your session). The daemon tells the browser to load previews from `localhost:<this port>`, so publish it on the **same** host port (`-p 127.0.0.1:9001:9001` with `CLAUDE_SCIENCE_SANDBOX_PORT=9001`) |
 | `CLAUDE_SCIENCE_PROXY` | `true` | Front the daemon with the auto sign-in proxy. Set `false` to serve the daemon directly on `CLAUDE_SCIENCE_PORT` (then use `claude-science url` for links) |
 | `CLAUDE_SCIENCE_HOST` | `0.0.0.0` | Bind address inside the container. Leave as-is - Docker's port publishing is the real network gate |
 | `CLAUDE_SCIENCE_DATA_DIR` | `/data` | State directory; mount your volume here |
@@ -21,12 +21,18 @@ All runtime configuration is done with environment variables - set them in
 
 | Arg | Default | Purpose |
 |---|---|---|
-| `CLAUDE_SCIENCE_URL` | `.../claude-science/latest/linux-x64` | Where the binary is fetched from. Point at a versioned URL to pin a build |
+| `CLAUDE_SCIENCE_RELEASE` | `latest` | Upstream release to bake in: `latest`, or a release id (8 hex chars) to pin a build |
+| `CLAUDE_SCIENCE_DIST` | Anthropic's release bucket | Release channel base URL (the same one the official installer uses) |
 | `BASE_IMAGE` | `debian:bookworm-slim` | Runtime base image |
+
+The build resolves the release, then verifies the binary against the
+release manifest's sha256 - the same check the official installer does. The
+build log prints the version and release id (`Claude Science 0.1.60
+(8db2454a)`); pass that id to rebuild the exact same binary later:
 
 ```bash
 docker build -f docker/Dockerfile \
-  --build-arg CLAUDE_SCIENCE_URL=https://downloads.claude.ai/claude-science/<version>/linux-x64 \
+  --build-arg CLAUDE_SCIENCE_RELEASE=8db2454a \
   -t claude-science:pinned .
 ```
 
@@ -58,14 +64,26 @@ defaults work unchanged.
   [`scripts/restore.sh`](../scripts/restore.sh) - see
   [scaling.md](scaling.md#backups) for a cron example.
 
-## Mounting datasets
+## Your files
 
-Give the workbench your data as extra read-only mounts, kept separate from
-the state volume:
+| Inside the container | Comes from | How |
+|---|---|---|
+| `/home/claude/ClaudeScience` | `~/ClaudeScience` on the host (`CLAUDE_SCIENCE_FOLDER` in `.env`) | Mounted by default, read-write |
+| `/home/claude/mounts/<name>` | Any host folder | `scripts/folders.sh add <folder> [--rw] [--name NAME]` |
 
-```yaml
-volumes:
-  - claude-science-data:/data
-  - ./datasets:/home/claude/datasets:ro
-  - /mnt/sequencer-output:/home/claude/sequencer:ro
-```
+The app only lets Claude use folders you grant in the UI (**+** → **Your
+files** → **Grant folder…**), so mounting a folder makes it *available*; it
+does not hand it to Claude. Grant sub-folders, not the mount points
+themselves.
+
+`scripts/folders.sh` recreates the container with the extra bind mounts
+(read-only unless `--rw`); the data volume is untouched, so login and
+projects survive. For Compose installs it writes a managed
+`compose.override.yaml` next to your compose file, which plain
+`docker compose up -d` picks up from then on. Run `scripts/folders.sh list`
+to see what is attached, `remove <name>` to detach. `make folders`,
+`make add-folder DIR=... [RW=1]` and `make remove-folder NAME=...` wrap it.
+
+On Linux, the container user is uid 1000. At startup the entrypoint warns in
+`docker logs` if a mounted folder isn't readable (or, for read-write mounts,
+writable) by that user; fix it with `sudo chown -R 1000:1000 <folder>`.

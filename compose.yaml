@@ -7,7 +7,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        CLAUDE_SCIENCE_URL: ${CLAUDE_SCIENCE_URL:-https://downloads.claude.ai/claude-science/latest/linux-x64}
+        # "latest" or a release id (8 hex chars) to pin a build
+        CLAUDE_SCIENCE_RELEASE: ${CLAUDE_SCIENCE_RELEASE:-latest}
     container_name: claude-science
     restart: unless-stopped
     ports:
@@ -33,8 +34,11 @@ services:
       # Named volume => survives container restart, recreation, image updates,
       # and `docker compose down`. Only `docker compose down -v` deletes it.
       - claude-science-data:/data
-      # Optionally expose host datasets to the workbench (read-only default):
-      # - ./datasets:/home/claude/datasets:ro
+      # Your shared folder: put projects in ~/ClaudeScience on this machine
+      # and they appear in Claude Science at /home/claude/ClaudeScience.
+      # Point it elsewhere with CLAUDE_SCIENCE_FOLDER in .env. For data that
+      # lives somewhere else, use scripts/folders.sh (see the README).
+      - ${CLAUDE_SCIENCE_FOLDER:-~/ClaudeScience}:/home/claude/ClaudeScience
 
     security_opt:
       # The daemon sandboxes analyses with bubblewrap (user namespaces + a

@@ -19,13 +19,20 @@ That is it. You do **not** need to download this project.
 
 ## Option 1: Docker Hub (recommended, no download)
 
-**Step 1.** Run this one command (copy the whole thing):
+**Step 1.** Make a folder for your files (this is where you will put your data for Claude):
+
+```bash
+mkdir -p ~/ClaudeScience
+```
+
+**Step 2.** Run this one command (copy the whole thing):
 
 ```bash
 docker run -d --name claude-science \
   -p 127.0.0.1:8000:8000 \
   -p 127.0.0.1:8001:8001 \
   -v claude-science-data:/data \
+  -v "$HOME/ClaudeScience:/home/claude/ClaudeScience" \
   --security-opt seccomp=unconfined \
   --security-opt apparmor=unconfined \
   --security-opt systempaths=unconfined \
@@ -33,11 +40,19 @@ docker run -d --name claude-science \
   zmahmoud/claude-science-docker:latest
 ```
 
-**Step 2.** Open **http://localhost:8000** in your browser.
+On **Windows**, use PowerShell and run it on one line:
 
-That is it. Sign-in is automatic. The very first start takes a few minutes while it sets itself up; you will see a short "Starting up" page until it is ready, then it drops you straight into Claude Science.
+```powershell
+mkdir -Force "$HOME\ClaudeScience"; docker run -d --name claude-science -p 127.0.0.1:8000:8000 -p 127.0.0.1:8001:8001 -v claude-science-data:/data -v "$HOME\ClaudeScience:/home/claude/ClaudeScience" --security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined --restart unless-stopped zmahmoud/claude-science-docker:latest
+```
 
-> A small proxy built into the image handles sign-in for you. Whenever a login is needed (including the one-time restart the first time you connect your Claude account), it quietly gets a fresh session so you never see a login screen or an "expired" page. No cloning, no copy-pasting links.
+**Step 3.** Open **http://localhost:8000** in your browser.
+
+**Step 4.** The first time only, click **Sign in on the web** and log in with your Claude account. That is it.
+
+The very first start takes a few minutes while it sets itself up; you may see a short "Starting up" page until it is ready.
+
+> A small proxy built into the image handles the app's own sign-in for you. Whenever the app needs a login link (after a restart, an update, or the one-time restart right after you connect your Claude account), the proxy quietly gets a fresh one and signs you in, so you never see the app's "Sign in" or "expired" page. No cloning, no copy-pasting links.
 
 ## Option 2: with the project files (optional)
 
@@ -50,6 +65,31 @@ docker compose up -d
 ```
 
 Then open http://localhost:8000, the same as above. `make up` also works.
+
+## Using your own files
+
+**The easy way: your `ClaudeScience` folder.** Everything you put in the `ClaudeScience` folder in your home folder shows up inside Claude Science, and anything Claude saves there appears on your computer.
+
+1. Copy or move a project into it, e.g. `~/ClaudeScience/my-study/`.
+2. In Claude Science, click **+** in the message box, then **Your files**, then **Grant folder…**
+3. Open `ClaudeScience`, pick `my-study`, choose **Read-only** or **Read & write**, and click **Grant this folder**.
+
+Grant a sub-folder like `my-study`, not `ClaudeScience` itself: then each project only sees its own files.
+
+**Small files?** Click **+** and then **Attach files** to upload them straight from your browser. No setup needed.
+
+**Data that lives somewhere else** (a big dataset on another disk, a network drive) and that you don't want to copy: attach the folder with the helper script. It works with both `docker run` and `docker compose` containers:
+
+```bash
+./scripts/folders.sh add /mnt/sequencer-output          # read-only (safe default)
+./scripts/folders.sh add ~/results --rw                  # let Claude write there too
+./scripts/folders.sh list                                # what is attached
+./scripts/folders.sh remove sequencer-output             # detach it again
+```
+
+The folder then appears in **Grant folder…** under `mounts/`. Docker can't add a folder to a running container, so the script recreates it with the same settings plus the new folder; your login and projects are kept. (Didn't clone the project? Download just the script: `curl -fsSLO https://raw.githubusercontent.com/ZakariaMahmoud/claude-science-docker/main/scripts/folders.sh && chmod +x folders.sh`. On Windows, run it from Git Bash or WSL.)
+
+> **Linux only:** the container runs as user id 1000. If Claude can't read or write a folder, the container log tells you (`docker logs claude-science`); fix it with `sudo chown -R 1000:1000 <folder>`. Mac and Windows need nothing.
 
 ## Everyday commands
 
@@ -77,7 +117,7 @@ It is only deleted if you remove the volume on purpose (`docker volume rm claude
 
 The app uses two ports: 8000 (main app) and 8001 (previews). If one is taken, here is how to change it.
 
-**Previews (8001).** Just change the left number of that `-p` line, e.g. `-p 127.0.0.1:9001:8001`.
+**Previews (8001).** Change **both** numbers on the `-p` line **and** add a matching `-e CLAUDE_SCIENCE_SANDBOX_PORT` line, e.g. `-p 127.0.0.1:9001:9001` with `-e CLAUDE_SCIENCE_SANDBOX_PORT=9001`. (The app tells your browser to load previews from that exact port, so both sides must match.)
 
 **The main app port (8000).** Change **both** numbers on the `-p` line **and** add a matching `-e CLAUDE_SCIENCE_PORT` line, so the built-in proxy listens where you publish it. For example, to use 9000:
 
@@ -110,10 +150,12 @@ Ready-made reverse proxy setups live in [deploy/](deploy/).
 ## How it works, in short
 
 - It downloads the official Claude Science program from Anthropic when the image is built. The program is never copied into this project.
+- When the app restarts itself (for example right after you connect your Claude account), the container keeps running and follows the new process.
 - It runs as a normal user (not root) inside the container.
-- It keeps your data in the `/data` volume.
+- It keeps your data in the `/data` volume, and shows your `ClaudeScience` folder (plus any folders you add) to the app.
 - It uses port 8000 for the app and 8001 for previews.
-- A small proxy (Caddy) sits in front of the app. When the app would show its "session expired" page, the proxy quietly fetches a fresh sign-in and sends you back in, so you never see it.
+- A small proxy (Caddy) sits in front of the app. When the app would show its "Sign in" or "session expired" page, the proxy quietly fetches a fresh sign-in and sends you back in, so you never see it.
+- It downloads the program from the same release channel as Anthropic's official installer and checks it against the release's published sha256 checksum.
 
 ## Publish your own image (optional)
 

@@ -3,8 +3,12 @@
 # so you scale it horizontally: one container + one volume + one port per user.
 #
 #   docker compose -f deploy/multi-instance/compose.yaml up -d
-#   docker exec claude-science-alice claude-science url   # Alice's login link
-#   docker exec claude-science-bob   claude-science url   # Bob's login link
+#   Alice opens http://localhost:8000, Bob opens http://localhost:8010
+#   (sign-in is automatic; each connects their own Claude account once)
+#
+# Each user gets their own shared folder (./folders/<user> next to this file,
+# or set ALICE_FOLDER / BOB_FOLDER); attach more with
+#   CONTAINER=claude-science-alice scripts/folders.sh add <folder>
 #
 # Add a user: copy a service block, bump the port, done. Each instance is
 # fully isolated: own login session, own projects, own analysis environments.
@@ -38,15 +42,21 @@ services:
       - "127.0.0.1:8001:8001"
     volumes:
       - alice-data:/data
+      - ${ALICE_FOLDER:-./folders/alice}:/home/claude/ClaudeScience
 
   bob:
     <<: *instance
     container_name: claude-science-bob
+    environment:
+      # Previews load from localhost:<sandbox port>, so it must be the same
+      # number on both sides of the publish.
+      CLAUDE_SCIENCE_SANDBOX_PORT: 8011
     ports:
       - "127.0.0.1:8010:8000"
-      - "127.0.0.1:8011:8001"
+      - "127.0.0.1:8011:8011"
     volumes:
       - bob-data:/data
+      - ${BOB_FOLDER:-./folders/bob}:/home/claude/ClaudeScience
 
 volumes:
   alice-data:

@@ -46,7 +46,10 @@ is the recommended mode.
 enabled, but analyses run with free rein *inside* the container, so the
 container is the only isolation boundary:
 
-- Mount datasets read-only (`:ro`).
+- Mount datasets read-only (`:ro`) - `scripts/folders.sh add` does this
+  unless you pass `--rw`. Prefer a dedicated folder (`~/ClaudeScience`) over
+  mounting your whole home directory, which would expose SSH keys, browser
+  profiles and other secrets to anything granted that folder.
 - Don't mount anything you wouldn't hand to the analysis wholesale.
 - Keep the resource limits in `compose.yaml` enabled.
 

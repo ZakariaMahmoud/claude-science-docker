@@ -16,12 +16,30 @@ First launch downloads and sets up the analysis runtime, which takes a few
 minutes. Watch `docker logs -f claude-science` until it settles; the
 healthcheck allows 5 minutes before flagging the container unhealthy.
 
-**"This Claude Science session has expired."**
-You should not see this page: the built-in proxy catches it and signs you
-back in automatically. If you do see it, you have `CLAUDE_SCIENCE_PROXY=false`
+**A "Sign in" page with a single button, or "session has expired".**
+You should not see these: the built-in proxy catches them and signs you
+back in automatically. If you do see one, you have `CLAUDE_SCIENCE_PROXY=false`
 (the proxy is off) or you are hitting the daemon's internal port directly.
+(This is different from the one-time *"Sign in on the web"* page, where you
+connect your Claude account - that one is expected on first use.)
 With the proxy on, just reload http://localhost:8000. To get a link by hand,
 run `docker exec claude-science claude-science url`.
+
+**My folder isn't in "Grant folder…", or Claude can't read/write it.**
+Run `scripts/folders.sh list` (or `docker inspect claude-science`) to check
+the folder is mounted under `/home/claude/ClaudeScience` or
+`/home/claude/mounts/`. On Linux, check `docker logs claude-science` for a
+`[folders] WARNING` line and fix ownership with
+`sudo chown -R 1000:1000 <folder>`. If `~/ClaudeScience` didn't exist before
+the first start, Docker on Linux creates it owned by root - the same fix
+applies. Revoking a grant in the app takes effect after the app restarts
+(`docker restart claude-science`).
+
+**HTML previews / app panels stay blank.**
+Previews come from the sandbox port, and the daemon tells the browser to
+load them from `localhost:<CLAUDE_SCIENCE_SANDBOX_PORT>`. The host port must
+therefore equal the container port: use `-p 127.0.0.1:9001:9001` together
+with `-e CLAUDE_SCIENCE_SANDBOX_PORT=9001`, not `-p 127.0.0.1:9001:8001`.
 
 **Login page loads but sign-in fails.**
 You need a claude.ai account on Pro, Max, Team, or Enterprise; Team and

@@ -2,9 +2,9 @@
 #
 # Why this exists: when a session expires (most often the one-time daemon
 # restart on first sign-in) the daemon answers every request with 401 and its
-# own "session has expired" page. That page confuses users. This proxy catches
-# the 401 and sends the browser through /__cs_auth, which mints a fresh login
-# link and drops them straight back into the app. They never see the raw page.
+# own "Sign in" page. That page confuses users. This proxy catches the 401 and
+# sends the browser through /__cs_auth, which mints a fresh nonce, posts it to
+# the daemon and drops them straight back into the app. They never see it.
 #
 # Ports (all set by the entrypoint):
 #   CLAUDE_SCIENCE_PORT  public port the browser uses (this proxy listens here)
@@ -18,8 +18,9 @@
 }
 
 :{$CLAUDE_SCIENCE_PORT:8000} {
-	# The mint endpoint: creates a fresh single-use login link and 302s to it.
-	handle /__cs_auth* {
+	# The mint server: /__cs_auth signs the browser in with a fresh single-use
+	# nonce, /__cs_status reports whether the daemon is up.
+	handle /__cs_* {
 		reverse_proxy 127.0.0.1:{$CS_MINT_PORT:47101}
 	}
 
@@ -42,7 +43,7 @@
 				header Content-Type text/html*
 			}
 			# On an expired-session page, hand the request to the mint server
-			# instead, which 302s the browser to a fresh /?nonce=... login.
+			# instead, which signs the browser in with a fresh nonce.
 			handle_response @expired {
 				rewrite * /__cs_auth
 				reverse_proxy 127.0.0.1:{$CS_MINT_PORT:47101}
