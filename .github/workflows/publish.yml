@@ -94,4 +94,4 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.IMAGE }}
-          short-description: "Anthropic's Claude Science research workbench, containerized (unofficial)"
+          short-description: "Claude Science in Docker: one command, automatic sign-in, easy access to your folders. Unofficial."
